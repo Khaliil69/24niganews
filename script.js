@@ -1,99 +1,93 @@
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  background: #f8fafc;
-  color: #1e293b;
+const API_KEY = "76efc73f36e04a35a61bf065f14405cd";
+const API_URL = `https://newsapi.org/v2/top-headlines?country=us&apiKey=${API_KEY}`;
+
+const newsContainer = document.getElementById("newsContainer");
+const refreshBtn = document.getElementById("refreshBtn");
+
+async function fetchNews() {
+  newsContainer.innerHTML = "<p>Loading latest news...</p>";
+  try {
+    const response = await fetch(API_URL);
+    const data = await response.json();
+
+    if (data.articles && data.articles.length > 0) {
+      newsContainer.innerHTML = "";
+      data.articles.forEach((article, index) => {
+        const articleElem = document.createElement("div");
+        articleElem.classList.add("article");
+
+        articleElem.innerHTML = `
+          ${article.urlToImage ? `<img src="${article.urlToImage}" alt="News image">` : ""}
+          <h2>${article.title}</h2>
+          <p>${article.description || ""}</p>
+          <footer>
+            <button class="likeBtn" data-index="${index}">👍 Like</button>
+            <button class="commentBtn" data-index="${index}">💬 Comment</button>
+            <button class="shareBtn" data-url="${article.url}">🔗 Share</button>
+          </footer>
+          <div class="comments" id="comments-${index}"></div>
+          <div class="comment-form" id="comment-form-${index}" style="display:none;">
+            <input type="text" placeholder="Your name" id="name-${index}">
+            <textarea placeholder="Write a comment..." id="text-${index}"></textarea>
+            <button onclick="addComment(${index})">Post</button>
+          </div>
+        `;
+        newsContainer.appendChild(articleElem);
+      });
+
+      setupButtons();
+    } else {
+      newsContainer.innerHTML = "<p>No news available right now.</p>";
+    }
+  } catch (error) {
+    newsContainer.innerHTML = "<p>Error loading news.</p>";
+    console.error(error);
+  }
 }
 
-header {
-  padding: 1rem;
-  background: white;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+function setupButtons() {
+  document.querySelectorAll(".likeBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const index = btn.dataset.index;
+      let likes = localStorage.getItem(`likes-${index}`) || 0;
+      likes++;
+      localStorage.setItem(`likes-${index}`, likes);
+      btn.textContent = `👍 Like (${likes})`;
+    });
+  });
+
+  document.querySelectorAll(".commentBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const index = btn.dataset.index;
+      const form = document.getElementById(`comment-form-${index}`);
+      form.style.display = form.style.display === "none" ? "block" : "none";
+    });
+  });
+
+  document.querySelectorAll(".shareBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const url = btn.dataset.url;
+      navigator.clipboard.writeText(url);
+      alert("Article link copied!");
+    });
+  });
 }
 
-header h1 {
-  margin: 0;
+function addComment(index) {
+  const name = document.getElementById(`name-${index}`).value || "Anonymous";
+  const text = document.getElementById(`text-${index}`).value;
+  if (!text.trim()) return;
+
+  const commentsDiv = document.getElementById(`comments-${index}`);
+  const commentElem = document.createElement("div");
+  commentElem.classList.add("comment");
+  commentElem.textContent = `${name}: ${text}`;
+  commentsDiv.appendChild(commentElem);
+
+  document.getElementById(`name-${index}`).value = "";
+  document.getElementById(`text-${index}`).value = "";
 }
 
-header p {
-  color: #475569;
-}
+refreshBtn.addEventListener("click", fetchNews);
 
-#refreshBtn {
-  margin-top: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  background: #0284c7;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-#refreshBtn:hover {
-  background: #0369a1;
-}
-
-#newsContainer {
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.article {
-  background: white;
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.article img {
-  max-width: 100%;
-  border-radius: 4px;
-}
-
-.article h2 {
-  margin: 0.5rem 0;
-}
-
-.article p {
-  color: #475569;
-}
-
-.article footer {
-  margin-top: 0.5rem;
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-button.likeBtn, button.commentBtn, button.shareBtn {
-  border: none;
-  background: #e2e8f0;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.comments {
-  margin-top: 0.5rem;
-  border-top: 1px solid #e2e8f0;
-  padding-top: 0.5rem;
-}
-
-.comment {
-  font-size: 0.9rem;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 0.25rem 0;
-}
-
-.comment-form {
-  margin-top: 0.5rem;
-}
-
-.comment-form input, .comment-form textarea {
-  width: 100%;
-  margin-bottom: 0.25rem;
-  padding: 0.25rem;
-}
-
+fetchNews();
