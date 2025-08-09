@@ -1,1 +1,108 @@
+const API_URL = "https://api.spaceflightnewsapi.net/v3/articles";
+const REFRESH_INTERVAL = 30000; // 30 seconds
+const newsContainer = document.getElementById("newsContainer");
+const statusEl = document.getElementById("status");
+let likes = JSON.parse(localStorage.getItem("likes") || "{}");
+let comments = JSON.parse(localStorage.getItem("comments") || "{}");
+
+async function fetchNews() {
+  statusEl.textContent = "Loading latest news...";
+  try {
+    const res = await fetch(API_URL + "?_limit=5");
+    if (!res.ok) throw new Error("Failed to fetch news");
+    const data = await res.json();
+    renderNews(data);
+    statusEl.textContent = "News updated.";
+  } catch (e) {
+    console.warn(e);
+    statusEl.textContent = "Showing demo news.";
+    renderNews(getDemoNews());
+  }
+}
+
+function renderNews(articles) {
+  newsContainer.innerHTML = "";
+  articles.forEach(article => {
+    const articleEl = document.createElement("div");
+    articleEl.className = "article";
+    articleEl.innerHTML = `
+      <img src="${article.imageUrl || ""}" alt="">
+      <h2>${article.title}</h2>
+      <p>${article.summary || ""}</p>
+      <small>Published: ${new Date(article.publishedAt).toLocaleString()}</small>
+      <footer>
+        <button class="likeBtn">👍 ${likes[article.id] || 0}</button>
+        <button class="commentBtn">💬 ${comments[article.id]?.length || 0}</button>
+        <button class="shareBtn">🔗 Share</button>
+      </footer>
+      <div class="comments" style="display:none;"></div>
+    `;
+
+    // Like button
+    articleEl.querySelector(".likeBtn").onclick = () => {
+      likes[article.id] = (likes[article.id] || 0) + 1;
+      localStorage.setItem("likes", JSON.stringify(likes));
+      fetchNews();
+    };
+
+    // Comment button
+    const commentsDiv = articleEl.querySelector(".comments");
+    articleEl.querySelector(".commentBtn").onclick = () => {
+      commentsDiv.style.display = commentsDiv.style.display === "none" ? "block" : "none";
+      showComments(article.id, commentsDiv);
+    };
+
+    // Share button
+    articleEl.querySelector(".shareBtn").onclick = async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: article.title, url: article.url });
+        } catch {}
+      } else {
+        navigator.clipboard.writeText(article.url);
+        alert("Link copied to clipboard!");
+      }
+    };
+
+    newsContainer.appendChild(articleEl);
+  });
+}
+
+function showComments(articleId, container) {
+  container.innerHTML = "";
+  const list = comments[articleId] || [];
+  list.forEach(c => {
+    container.innerHTML += `<div class="comment"><strong>${c.name}:</strong> ${c.text}</div>`;
+  });
+
+  const form = document.createElement("form");
+  form.className = "comment-form";
+  form.innerHTML = `
+    <input type="text" name="name" placeholder="Your name" />
+    <textarea name="text" placeholder="Write a comment..." required></textarea>
+    <button type="submit">Post</button>
+  `;
+  form.onsubmit = e => {
+    e.preventDefault();
+    const name = form.name.value.trim() || "Anonymous";
+    const text = form.text.value.trim();
+    if (!text) return;
+    comments[articleId] = comments[articleId] || [];
+    comments[articleId].push({ name, text });
+    localStorage.setItem("comments", JSON.stringify(comments));
+    showComments(articleId, container);
+  };
+  container.appendChild(form);
+}
+
+function getDemoNews() {
+  return [
+    { id: "1", title: "Global markets respond to policy shifts", summary: "Markets show signs of volatility as central banks signal new policy direction.", url: "#", imageUrl: "https://picsum.photos/400/200", publishedAt: new Date().toISOString() },
+    { id: "2", title: "New tech promises faster connectivity", summary: "A startup unveils a networking chip that could change mobile speeds worldwide.", url: "#", imageUrl: "https://picsum.photos/401/200", publishedAt: new Date().toISOString() }
+  ];
+}
+
+document.getElementById("refreshBtn").onclick = fetchNews;
+setInterval(fetchNews, REFRESH_INTERVAL);
+fetchNews();
 
